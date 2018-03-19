@@ -2,6 +2,7 @@ import numpy as np
 import pytest
 from nems.recording import Recording
 
+@pytest.mark.skip("Needs URI fix")
 def test_recording_loading():
     '''
     Test the loading and saving of files to various HTTP/S3/File routes.
@@ -44,6 +45,7 @@ def test_recording_loading():
     if not rec0.save('http://potoroo/recordings/'):
         print('Error saving to a directory URI')
         assert 0
+
 
 def test_recording_from_arrays():
     # need a list of array-like data structures
