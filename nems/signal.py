@@ -997,6 +997,10 @@ class RasterizedSignal(SignalBase):
         '''
 
         epochs = self.get_epoch_indices(epoch_name)
+        l_epochs = [tuple(row) for row in epochs]
+        print('Removing overlapping occurences of epoch %s' %(epoch_name))
+        epochs = np.sort(np.array(list(set(l_epochs))),axis=0)
+        
         occurrences, _ = epochs.shape
 
         if excise:
