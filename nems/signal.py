@@ -341,7 +341,7 @@ class SignalBase:
             bounds = self.epochs.loc[mask, ['start', 'end']].values
             bounds = np.round(bounds.astype(float) * self.fs) / self.fs
         else:
-            bounds = epoch
+            bounds = np.asarray(epoch)
 
         if boundary_mode is None:
             raise NotImplementedError
@@ -1520,13 +1520,18 @@ class RasterizedSignal(SignalBase):
         return self._modified_copy(m)
 
     def select_times(self, times, padding=0):
-
         if padding != 0:
             raise NotImplementedError    # TODO
 
-        times = np.asarray(times)
-        indices = np.round(times*self.fs).astype('i')
+        indices = self.get_epoch_indices(times, boundary_mode='exclude')
+        if len(indices) != len(times):
+            m = 'Requested times are not contained in signal'
+            raise ValueError(m)
+
         data = self.as_continuous()
+        if indices[-1, 1] > data.shape[-1]:
+            m = 'Requested times are not contained in signal'
+            raise ValueError(m)
 
         subsets = [data[..., lb:ub] for lb, ub in indices]
         data = np.concatenate(subsets, axis=-1)
@@ -1537,6 +1542,7 @@ class RasterizedSignal(SignalBase):
         if padding != 0:
             raise NotImplementedError    # TODO
 
+        # TODO: this will be broken if using a subsetted signal
         times = np.asarray(times)
         indices = np.round(times*self.fs).astype('i')
         data = self.as_continuous().copy()

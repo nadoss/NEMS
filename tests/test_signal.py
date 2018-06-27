@@ -372,7 +372,8 @@ def test_loc(signal):
 
 
 def test_rasterized_signal_subset(signal):
-    subset = signal.select_times([(0, 0.2), (0.3, 2)])
+    t1 = [(0, 0.2), (0.3, 2)]
+    subset = signal.select_times(t1)
     assert subset.as_continuous().shape == (3, 95)
     epoch_subset = subset.extract_epoch('pupil_closed')
     assert epoch_subset.shape == (1, 3, 45)
@@ -380,6 +381,34 @@ def test_rasterized_signal_subset(signal):
     with pytest.raises(IndexError):
         epoch_subset = subset.extract_epoch('trial')
     assert subset.average_epoch('pupil_closed').shape == (3, 45)
+
+    # Test to make sure we can use select_times on signals that already have
+    # subsets excised.
+    t2 = [(0.3, 2)]
+    actual = subset.select_times(t1).select_times(t2).as_continuous()
+    expected = signal.select_times(t2).as_continuous()
+    assert actual.shape == expected.shape
+    assert np.equal(actual, expected).all()
+
+    t3 = [(1, 2)]
+    actual = subset.select_times(t1).select_times(t2).select_times(t3).as_continuous()
+    expected = signal.select_times(t3).as_continuous()
+    assert actual.shape == expected.shape
+    assert np.equal(actual, expected).all()
+
+    # Requesting a segment that's not in a signal with subsets already exised.
+    t4 = [(0, 0.1)]
+    with pytest.raises(ValueError):
+        signal.select_times(t2).select_times(t4).as_continuous()
+
+    # Signal duration is 4 seconds. We cannot index past this.
+    t5 = [(0, 100)]
+    with pytest.raises(ValueError):
+        signal.select_times(t5)
+
+    # This is OK.
+    t6 = [(0, 4.0)]
+    signal.select_times(t6)
 
 
 def test_epoch_to_signal(signal):
