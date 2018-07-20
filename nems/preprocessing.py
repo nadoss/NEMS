@@ -3,7 +3,7 @@ import copy
 
 import numpy as np
 import pandas as pd
-from scipy.signal import convolve2d
+from scipy.signal import convolve2d, spectrogram
 
 import nems.epoch as ep
 import nems.signal as signal
@@ -469,7 +469,7 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
         p -= np.nanmean(p)
         p /= np.nanstd(p)
         newrec["pupil"] = newrec["pupil"]._modified_copy(p)
-
+        
     if ('pupil_ev' in state_signals) or ('pupil_bs' in state_signals):
         # generate separate pupil baseline and evoked signals
 
@@ -490,6 +490,56 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
                 'TRIAL', pupil_bs)
         newrec['pupil_bs'].chans=['pupil_bs']
 
+    if 'pupil_der' in state_signals:
+        # generate pupil derivative state variable (basically mean change on a 
+        # per trial basis - just substract mean at end of trial from mean in 
+        # prestimsilence
+        
+        prestimsilence = newrec["pupil"].extract_epoch('PreStimSilence')
+        spont_bins = prestimsilence.shape[2]
+        pupil_trial = newrec["pupil"].extract_epoch('TRIAL')
+
+        pupil_bs = np.zeros(pupil_trial.shape)
+        pupil_ev = np.zeros(pupil_trial.shape)
+        for ii in range(pupil_trial.shape[0]):
+            pupil_bs[ii, :, :] = np.mean(
+                    pupil_trial[ii, :, :spont_bins])
+            pupil_ev[ii, :, :] = np.nanmean(
+                    pupil_trial[ii, :, -spont_bins:])
+        pupil_der = pupil_ev - pupil_bs
+        newrec['pupil_der'] = newrec["pupil"].replace_epoch(
+                'TRIAL', pupil_der)
+        newrec['pupil_der'].chans = ['pupil_der']
+        p = newrec['pupil'].as_continuous()
+        d = newrec['pupil_der'].as_continuous()
+        newrec['p_x_pd'] = newrec["pupil"]._modified_copy(p * d)     
+        newrec['p_x_pd'].chans = ['p_x_pd']
+        
+    if 'pupil_psd' in state_signals:
+        chns=5
+        state_chans = np.zeros((chns, newrec['pupil'].shape[-1]))
+        fs = newrec['pupil'].fs
+        f, t, Sxx = spectrogram(newrec['pupil'].as_continuous().squeeze(), fs=fs)
+        for i, t_ in enumerate(t):
+            if t_ == t[-1]:
+                ts = int(t_*fs)
+                e = newrec['pupil'].shape[-1]
+                win_len = e-ts
+                fill = np.tile(Sxx[:chns, i][:,np.newaxis], [1, win_len])
+                state_chans[:,ts:] = fill
+            else:
+                ts = int(t_*fs)
+                te = int(t[i+1]*fs)
+                win_len = int((te-ts))
+                
+                fill = np.tile(Sxx[:chns, i][:,np.newaxis], [1, win_len])
+                
+                state_chans[:, int(ts):(int(ts)+win_len)] = fill        
+        psd_signal = newrec['pupil']._modified_copy(state_chans)
+        psd_signal.name = 'pupil_psd'
+        psd_signal.chans = ['pupil_psd_ch{0}'.format(i) for i in range(0,chns)]
+        newrec["pupil_psd"] = psd_signal
+        
     if ('each_passive' in state_signals):
         file_epochs = ep.epoch_names_matching(resp.epochs, "^FILE_")
         pset = []
