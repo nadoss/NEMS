@@ -7,11 +7,14 @@ log = logging.getLogger(__name__)
 def init(kw):
     ops = kw.split('.')[1:]
     st = False
+    step = False
     tolerance = 10**-5.5
 
     for op in ops:
         if op == 'st':
             st = True
+        elif op == 'step':
+            step == True
         elif op.startswith('t'):
             # 'd' stands in for '.' in floating points
             num = op.replace(',', '.')
@@ -20,6 +23,8 @@ def init(kw):
 
     if st:
         return [['nems.xforms.fit_state_init', {'tolerance': tolerance}]]
+    if step:
+        return [['nems.xforms.fit_state_step_init', {'tolerance': tolerance}]]
     else:
         return [['nems.xforms.fit_basic_init', {'tolerance': tolerance}]]
 

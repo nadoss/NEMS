@@ -19,7 +19,10 @@ from nems.fitters.api import scipy_minimize, coordinate_descent
 from nems.recording import load_recording
 
 import numpy as np
-
+import re
+import sys
+sys.path.append('/auto/users/hellerc/code/nems_fit_scripts/')
+import fitting_no_db as fndb
 log = logging.getLogger(__name__)
 xforms = {}  # A mapping of kform keywords to xform 2-tuplets (2 element lists)
 
@@ -422,6 +425,25 @@ def fit_state_init(modelspecs, est, IsReload=False, metric='nmse', **context):
             modelspecs_out.append(m)
 
         modelspecs = modelspecs_out
+
+    return {'modelspecs': modelspecs}
+
+
+def fit_state_step_init(modelspecs, est, IsReload=False, metric='nmse', **context):
+    '''
+    Trying to intialize priors in a stepwise fashion to prevent overfitting
+    to new state params
+    '''
+    loadkey = modelspecs['meta']['loader']
+    pattern = re.compile(r"-st(\.\w*)*")
+    parsed = pattern.search(loadkey)
+    st_vars = parsed.group().split('.')[1:]
+    cellid = context['modelspecs'][0][0]['meta']['cellid']
+    batch = context['modelsecs'][0][0]['meta']['batch']
+    for i in st_vars[:-1]:
+        modelname = re.sub(parsed.group(), 'st.'+i, modelspecs[0][0]['meta']['modelname'])
+        ctx = fndb.fit_single_no_db(cellid, batch, modelname, modelspecs)
+        modelspecs = ctx['modelspecs']
 
     return {'modelspecs': modelspecs}
 
