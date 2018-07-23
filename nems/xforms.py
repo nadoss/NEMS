@@ -118,7 +118,7 @@ def evaluate(xformspec, context={}, start=0, stop=None):
     that is the second value returned by this function.
     '''
     context = copy.deepcopy(context)  # Create a new starting context
-
+    
     # Create a log stream set to the debug level; add it as a root log handler
     log_stream = io.StringIO()
     ch = logging.StreamHandler(log_stream)
@@ -434,17 +434,43 @@ def fit_state_step_init(modelspecs, est, IsReload=False, metric='nmse', **contex
     Trying to intialize priors in a stepwise fashion to prevent overfitting
     to new state params
     '''
-    loadkey = modelspecs['meta']['loader']
+    loadkey = modelspecs[0][0]['meta']['loader']
     pattern = re.compile(r"-st(\.\w*)*")
     parsed = pattern.search(loadkey)
     st_vars = parsed.group().split('.')[1:]
-    cellid = context['modelspecs'][0][0]['meta']['cellid']
-    batch = context['modelsecs'][0][0]['meta']['batch']
-    for i in st_vars[:-1]:
-        modelname = re.sub(parsed.group(), 'st.'+i, modelspecs[0][0]['meta']['modelname'])
-        ctx = fndb.fit_single_no_db(cellid, batch, modelname, modelspecs)
-        modelspecs = ctx['modelspecs']
+    
+    modelspecs_out = []
+    if len(st_vars) == 1:
+        modelspecs_out = modelspecs
+    for i, s in enumerate(st_vars[:-1]):
+        j = 0
+        if modelspecs_out == []:
+            for m, d in zip(modelspecs, est):
+                j+=1
+                dc = copy.deepcopy(d)
+                data = dc['state'].as_continuous()
+                for ind in range(0,data.shape[0]):
+                    if ind != (i+1):
+                        data[ind, :] = np.zeros((1, data.shape[-1]))*data[0,:]
+                dc['state'] = dc['state']._modified_copy(data)
+                m = nems.analysis.api.fit_basic(
+                        dc, m, fitter=scipy_minimize)[0]
+                modelspecs_out.append(m)
 
+        else:
+            for m, d in zip(modelspecs_out, est):
+                dc = copy.deepcopy(d)
+                data = dc['state'].as_continuous()
+                for ind in range(0,data.shape[0]):
+                    if ind != (i+1):
+                        data[ind, :] = np.zeros((1, data.shape[-1]))*data[i+1,:]
+                dc['state'] = dc['state']._modified_copy(data)
+                m = nems.analysis.api.fit_basic(
+                        dc, m, fitter=scipy_minimize)[0]
+                modelspecs_out[j] = m 
+                j+=1
+    modelspecs = modelspecs_out
+    
     return {'modelspecs': modelspecs}
 
 

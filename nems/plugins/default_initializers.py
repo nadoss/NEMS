@@ -14,7 +14,7 @@ def init(kw):
         if op == 'st':
             st = True
         elif op == 'step':
-            step == True
+            step = True
         elif op.startswith('t'):
             # 'd' stands in for '.' in floating points
             num = op.replace(',', '.')
@@ -23,7 +23,8 @@ def init(kw):
 
     if st:
         return [['nems.xforms.fit_state_init', {'tolerance': tolerance}]]
-    if step:
+    elif step:
+        print('calling new funct')
         return [['nems.xforms.fit_state_step_init', {'tolerance': tolerance}]]
     else:
         return [['nems.xforms.fit_basic_init', {'tolerance': tolerance}]]
