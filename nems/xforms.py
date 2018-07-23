@@ -20,9 +20,6 @@ from nems.recording import load_recording
 
 import numpy as np
 import re
-import sys
-sys.path.append('/auto/users/hellerc/code/nems_fit_scripts/')
-import fitting_no_db as fndb
 log = logging.getLogger(__name__)
 xforms = {}  # A mapping of kform keywords to xform 2-tuplets (2 element lists)
 
